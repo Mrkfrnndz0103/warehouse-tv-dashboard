@@ -81,17 +81,23 @@ let comboChartInstance = null;
 let lastSeenUpdate = null;
 
 async function fetchRange(range) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&range=${range}`;
   try {
-    const res = await fetch(url);
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}&range=${range}&cacheBust=${Date.now()}`;
+    const res = await fetch(url, { cache: "no-store" });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+
     const text = await res.text();
-    if (!text.startsWith("/**/")) throw new Error("Invalid Google Sheet response");
+    if (!text.startsWith("/**/")) throw new Error("Google Sheets returned invalid format. Check sharing permissions.");
+
     const json = JSON.parse(text.substr(47).slice(0, -2));
     return json.table.rows.map(r => r.c.map(c => c && c.v !== null ? c.v : ""));
-  } catch (e) {
-    throw e;
+  } catch (err) {
+    console.error(`❌ Failed to fetch range ${range}:`, err);
+    return []; // Return empty array instead of breaking the dashboard
   }
 }
+
 
 function getColorClass(value) {
   if (value <= 500) return "green";
